@@ -1,0 +1,7 @@
+CREATE TRIGGER triggerAfterDelete
+AFTER DELETE ON lib
+FOR EACH ROW
+BEGIN
+    INSERT INTO libraryAudit (bid, bname, doi, actionType)
+    VALUES (OLD.bid, OLD.bname, OLD.doi, 'Delete');
+END$$
