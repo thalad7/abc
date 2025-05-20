@@ -1,0 +1,276 @@
+-----------Write a PL/SQL code to implement all types of cursor and display employee number, name and
+salary of 5 highest paid employees using cursor.Employee(employee no, employee name, join_date,
+designation, salary).
+
+
+CREATE TABLE Employee (
+    emp_no INT PRIMARY KEY,
+    emp_name VARCHAR(100),
+    join_date DATE,
+    designation VARCHAR(50),
+    salary DECIMAL(10,2)
+);
+
+INSERT INTO Employee VALUES
+(1, 'Alice', '2019-01-10', 'Manager', 90000),
+(2, 'Bob', '2020-02-15', 'Developer', 75000),
+(3, 'Charlie', '2018-07-01', 'Analyst', 82000),
+(4, 'David', '2021-03-22', 'Developer', 70000),
+(5, 'Eve', '2022-04-10', 'Support', 50000),
+(6, 'Frank', '2020-09-05', 'Developer', 88000),
+(7, 'Grace', '2019-11-20', 'Manager', 95000);
+
+
+explicit:
+DELIMITER //
+
+CREATE PROCEDURE GetTop5Salaries()
+BEGIN
+    DECLARE done INT DEFAULT FALSE;
+    DECLARE v_emp_no INT;
+    DECLARE v_emp_name VARCHAR(100);
+    DECLARE v_salary DECIMAL(10,2);
+    
+    DECLARE top5 CURSOR FOR
+        SELECT emp_no, emp_name, salary
+        FROM Employee
+        ORDER BY salary DESC
+        LIMIT 5;
+    
+    DECLARE CONTINUE HANDLER FOR NOT FOUND SET done = TRUE;
+    
+    OPEN top5;
+    
+    read_loop: LOOP
+        FETCH top5 INTO v_emp_no, v_emp_name, v_salary;
+        IF done THEN
+            LEAVE read_loop;
+        END IF;
+        SELECT CONCAT('Emp No: ', v_emp_no, ', Name: ', v_emp_name, ', Salary: ', v_salary) AS Result;
+    END LOOP;
+    
+    CLOSE top5;
+END //
+
+DELIMITER ;
+
+
+
+implicit:
+DELIMITER //
+
+CREATE PROCEDURE GetTopEmployeeImplicit()
+BEGIN
+    DECLARE v_emp_no INT;
+    DECLARE v_emp_name VARCHAR(100);
+    DECLARE v_salary DECIMAL(10,2);
+    
+    -- Implicit-style single row query
+    SELECT emp_no, emp_name, salary
+    INTO v_emp_no, v_emp_name, v_salary
+    FROM Employee
+    ORDER BY salary DESC
+    LIMIT 1;
+    
+    SELECT CONCAT('Top Paid Employee - No: ', v_emp_no, ', Name: ', v_emp_name, ', Salary: ', v_salary) AS Result;
+END //
+
+DELIMITER ;
+
+
+
+------------PL/SQL Stored Procedure and Stored Function : Write a PL/SQL procedure to find the number of
+students ranging from 100-80%, 79-70%, 69-60%,59-50 & below 49% in each course from the
+Student_course table given by the procedure as parameter.
+Student_course(Roll_no,Course,Couse_code,Semester,Total_Marks,Percentage)
+
+
+DELIMITER //
+
+CREATE PROCEDURE GetStudentPercentageDistributionByCourse_SingleRow(
+    IN input_course VARCHAR(100)
+)
+BEGIN
+    DECLARE v_100_80 INT DEFAULT 0;
+    DECLARE v_79_70 INT DEFAULT 0;
+    DECLARE v_69_60 INT DEFAULT 0;
+    DECLARE v_59_50 INT DEFAULT 0;
+    DECLARE v_below_49 INT DEFAULT 0;
+
+    SELECT COUNT(*) INTO v_100_80
+    FROM Student_course
+    WHERE Course = input_course AND Percentage BETWEEN 80 AND 100;
+
+    SELECT COUNT(*) INTO v_79_70
+    FROM Student_course
+    WHERE Course = input_course AND Percentage BETWEEN 70 AND 79;
+
+    SELECT COUNT(*) INTO v_69_60
+    FROM Student_course
+    WHERE Course = input_course AND Percentage BETWEEN 60 AND 69;
+
+    SELECT COUNT(*) INTO v_59_50
+    FROM Student_course
+    WHERE Course = input_course AND Percentage BETWEEN 50 AND 59;
+
+    SELECT COUNT(*) INTO v_below_49
+    FROM Student_course
+    WHERE Course = input_course AND Percentage < 50;
+
+    SELECT
+        v_100_80 AS `100-80%`,
+        v_79_70 AS `79-70%`,
+        v_69_60 AS `69-60%`,
+        v_59_50 AS `59-50%`,
+        v_below_49 AS `Below 49%`;
+END //
+
+DELIMITER ;
+
+
+
+function=
+DELIMITER //
+
+CREATE FUNCTION GetStudentCountsByCourse_Concat(
+    input_course VARCHAR(100)
+) RETURNS VARCHAR(255)
+DETERMINISTIC
+BEGIN
+    DECLARE v_100_80 INT DEFAULT 0;
+    DECLARE v_79_70 INT DEFAULT 0;
+    DECLARE v_69_60 INT DEFAULT 0;
+    DECLARE v_59_50 INT DEFAULT 0;
+    DECLARE v_below_49 INT DEFAULT 0;
+    DECLARE result VARCHAR(255);
+
+    SELECT COUNT(*) INTO v_100_80
+    FROM Student_course
+    WHERE Course = input_course AND Percentage BETWEEN 80 AND 100;
+
+    SELECT COUNT(*) INTO v_79_70
+    FROM Student_course
+    WHERE Course = input_course AND Percentage BETWEEN 70 AND 79;
+
+    SELECT COUNT(*) INTO v_69_60
+    FROM Student_course
+    WHERE Course = input_course AND Percentage BETWEEN 60 AND 69;
+
+    SELECT COUNT(*) INTO v_59_50
+    FROM Student_course
+    WHERE Course = input_course AND Percentage BETWEEN 50 AND 59;
+
+    SELECT COUNT(*) INTO v_below_49
+    FROM Student_course
+    WHERE Course = input_course AND Percentage < 50;
+
+    SET result = CONCAT(
+      '100-80%: ', v_100_80, ', ',
+      '79-70%: ', v_79_70, ', ',
+      '69-60%: ', v_69_60, ', ',
+      '59-50%: ', v_59_50, ', ',
+      'Below 49%: ', v_below_49
+    );
+
+    RETURN result;
+END //
+
+DELIMITER ;
+
+
+
+----------------Database Trigger (Row level and Statement level triggers, Before and After Triggers):Write a
+database trigger on Employee table. The System should keep track of the records that are being
+updated or deleted. The old value of updated or deleted records should be added in to a new table
+when the Employee table is updated. Employee(employee no, employee name, join_date,
+designation, salary)
+
+
+CREATE TABLE Employee (
+    employee_no INT PRIMARY KEY,
+    employee_name VARCHAR(100),
+    join_date DATE,
+    designation VARCHAR(50),
+    salary DECIMAL(10,2)
+);
+
+CREATE TABLE Employee_Audit (
+    audit_id INT AUTO_INCREMENT PRIMARY KEY,
+    employee_no INT,
+    employee_name VARCHAR(100),
+    join_date DATE,
+    designation VARCHAR(50),
+    salary DECIMAL(10,2),
+    action_type VARCHAR(10),    -- 'UPDATE' or 'DELETE'
+    action_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+
+
+INSERT INTO Employee VALUES
+(1, 'Alice', '2020-01-10', 'Developer', 50000),
+(2, 'Bob', '2019-03-15', 'Analyst', 45000),
+(3, 'Charlie', '2021-07-01', 'Manager', 70000);
+
+
+
+DELIMITER //
+
+CREATE TRIGGER trg_employee_before_update
+BEFORE UPDATE ON Employee
+FOR EACH ROW
+BEGIN
+    INSERT INTO Employee_Audit (
+        employee_no, employee_name, join_date, designation, salary, action_type
+    )
+    VALUES (
+        OLD.employee_no,
+        OLD.employee_name,
+        OLD.join_date,
+        OLD.designation,
+        OLD.salary,
+        'UPDATE'
+    );
+END; //
+
+DELIMITER ;
+
+
+
+
+DELIMITER //
+
+CREATE TRIGGER trg_employee_before_delete
+BEFORE DELETE ON Employee
+FOR EACH ROW
+BEGIN
+    INSERT INTO Employee_Audit (
+        employee_no, employee_name, join_date, designation, salary, action_type
+    )
+    VALUES (
+        OLD.employee_no,
+        OLD.employee_name,
+        OLD.join_date,
+        OLD.designation,
+        OLD.salary,
+        'DELETE'
+    );
+END; //
+
+DELIMITER ;
+
+
+
+UPDATE Employee
+SET salary = 55000, designation = 'Senior Developer'
+WHERE employee_no = 1;
+
+
+
+DELETE FROM Employee
+WHERE employee_no = 2;
+
+
+SELECT * FROM Employee_Audit ORDER BY audit_id;
+
+
