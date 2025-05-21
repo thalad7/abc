@@ -1,0 +1,784 @@
+6 Create tables CitiesIndia(pincode,nameofcity,earliername,area,population,avgrainfall) 
+Categories(Type,pincode) Note:- Enter data only in CitiesIndia
+Write PL/SQL Procedure & function to find the population density of the cities. If the population density is above 3000 then Type of city must be entered as High Density in Category table. Between 2999 to 1000 as Moderate and below 999 as Low Density. Error must be displayed for population less than 10 or greater than 25718.
+
+
+-- Create database 
+CREATE DATABASE CityDB; 
+USE CityDB;
+
+-- Step 1: Create the tables
+
+CREATE TABLE CitiesIndia (
+    pincode INT PRIMARY KEY,
+    nameofcity VARCHAR(100),
+    earliername VARCHAR(100),
+    area FLOAT,          -- area in square kilometers
+    population INT,      -- total population
+    avgrainfall FLOAT    -- average rainfall in mm
+);
+
+CREATE TABLE Categories (
+    Type VARCHAR(50),    -- High, Moderate, or Low Density
+    pincode INT,
+    FOREIGN KEY (pincode) REFERENCES CitiesIndia(pincode)
+);
+
+-- Step 2: Insert sample data into CitiesIndia (Indian cities only)
+
+INSERT INTO CitiesIndia VALUES (110001, 'Delhi', 'Indraprastha', 6, 19800, 800);       
+INSERT INTO CitiesIndia VALUES (400001, 'Mumbai', 'Bombay', 5, 18000, 2200);           
+INSERT INTO CitiesIndia VALUES (560001, 'Bengaluru', 'Bangalore', 10, 16000, 970);     
+INSERT INTO CitiesIndia VALUES (600001, 'Chennai', 'Madras', 8, 8000, 1400);           
+INSERT INTO CitiesIndia VALUES (500001, 'Hyderabad', 'Bhagyanagar', 20, 500, 800);     
+INSERT INTO CitiesIndia VALUES (700001, 'Kolkata', 'Calcutta', 15, 5, 1600);           
+
+-- Step 3: Create function to calculate population density
+
+DELIMITER //
+
+CREATE FUNCTION get_density(city_pincode INT) RETURNS FLOAT
+DETERMINISTIC
+BEGIN
+    DECLARE city_population INT;
+    DECLARE city_area FLOAT;
+    DECLARE density FLOAT;
+
+    -- Get population and area for the city
+    SELECT population, area INTO city_population, city_area
+    FROM CitiesIndia
+    WHERE pincode = city_pincode;
+
+    -- Calculate density = population / area
+    SET density = city_population / city_area;
+
+    RETURN density;
+END;
+//
+
+DELIMITER ;
+
+-- Step 4: Create procedure to classify city based on population density
+
+DELIMITER //
+
+CREATE PROCEDURE classify_city_density(city_pincode INT)
+BEGIN
+    DECLARE city_population INT;
+    DECLARE density FLOAT;
+
+    -- Get population from CitiesIndia
+    SELECT population INTO city_population
+    FROM CitiesIndia
+    WHERE pincode = city_pincode;
+
+    -- Check if population is in valid range
+    IF city_population < 10 OR city_population > 25718 THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Error: Population must be between 10 and 25718';
+    END IF;
+
+    -- Get density using the function
+    SET density = get_density(city_pincode);
+
+    -- Classify based on density value
+    IF density > 3000 THEN 
+        INSERT INTO Categories VALUES ('High Density', city_pincode);
+    ELSEIF density BETWEEN 1000 AND 2999 THEN
+        INSERT INTO Categories VALUES ('Moderate Density', city_pincode);
+    ELSE 
+        INSERT INTO Categories VALUES ('Low Density', city_pincode);
+    END IF;
+END;
+//
+
+DELIMITER ;
+
+-- Step 5: Call procedure for each city (except the invalid one)
+
+CALL classify_city_density(110001);  -- Delhi
+CALL classify_city_density(400001);  -- Mumbai
+CALL classify_city_density(560001);  -- Bengaluru
+CALL classify_city_density(600001);  -- Chennai
+CALL classify_city_density(500001);  -- Hyderabad
+-- CALL classify_city_density(700001);  -- Kolkata (this will throw error due to population < 10)
+
+-- Step 6: Show the classification result
+
+SELECT * FROM Categories;
+
+
+
+7 Write PL/SQL Procedure & function to find class [Distinction (Total marks from 1499 to 990) ,First Class( 899 to 900) Higher Second (899 to 825) ,Second,Pass (824 to 750) ] of a student based on total marks from table Student (rollno, name, Marks1, Marks2, Marks3, Marks4, Marks5). 
+Use exception handling when negative marks are entered by user(Marks<0) or Marks more than 100 are entered by user.. Store the result into Result table recording  RollNo,total marks, and class for each student .
+
+-- Create database and use it
+CREATE DATABASE IF NOT EXISTS StudentDB;
+USE StudentDB;
+
+-- Create database and use it
+CREATE DATABASE IF NOT EXISTS StudentDB;
+USE StudentDB;
+
+-- Create Student table
+CREATE TABLE Student (
+    rollno INT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    Marks1 INT,
+    Marks2 INT,
+    Marks3 INT,
+    Marks4 INT,
+    Marks5 INT
+);
+
+-- Create Result table
+CREATE TABLE Result (
+    rollno INT PRIMARY KEY,
+    total_marks INT,
+    class VARCHAR(20),
+    FOREIGN KEY (rollno) REFERENCES Student(rollno)
+);
+
+-- Insert sample data into Student table
+INSERT INTO Student VALUES
+(1, 'Rahul Sharma', 95, 98, 92, 88, 94),
+(2, 'Neha Gupta', 78, 85, 80, 75, 82),
+(3, 'Amit Singh', 65, 70, 60, 55, 68),
+(4, 'Pooja Patel', 102, 90, 85, 88, 91),
+(5, 'Karan Verma', -5, 88, 90, 84, 87);
+
+-- Function to calculate total marks and check for invalid marks
+DELIMITER //
+CREATE FUNCTION calculate_total(roll INT) RETURNS INT
+DETERMINISTIC
+BEGIN
+    DECLARE total INT;
+    DECLARE m1, m2, m3, m4, m5 INT;
+
+    SELECT Marks1, Marks2, Marks3, Marks4, Marks5 
+    INTO m1, m2, m3, m4, m5 
+    FROM Student WHERE rollno = roll;
+
+    -- Validate marks
+    IF m1 < 0 OR m1 > 100 OR m2 < 0 OR m2 > 100 OR m3 < 0 OR m3 > 100 
+       OR m4 < 0 OR m4 > 100 OR m5 < 0 OR m5 > 100 THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Invalid marks found (negative or greater than 100)';
+    END IF;
+
+    SET total = m1 + m2 + m3 + m4 + m5;
+    RETURN total;
+END //
+DELIMITER ;
+
+-- Procedure to calculate class and insert into Result table
+DELIMITER //
+CREATE PROCEDURE Calculate_Class()
+BEGIN
+    DECLARE done INT DEFAULT 0;
+    DECLARE c_roll INT;
+    DECLARE total_marks INT;
+    DECLARE class_result VARCHAR(20);
+
+    DECLARE cur CURSOR FOR SELECT rollno FROM Student;
+    DECLARE CONTINUE HANDLER FOR NOT FOUND SET done = 1;
+    DECLARE CONTINUE HANDLER FOR SQLEXCEPTION BEGIN END; -- Skip invalid marks
+
+    OPEN cur;
+    read_loop: LOOP
+        FETCH cur INTO c_roll;
+        IF done THEN
+            LEAVE read_loop;
+        END IF;
+
+        BEGIN
+            SET total_marks = calculate_total(c_roll);
+
+            -- Determine class based on total marks
+            IF total_marks BETWEEN 990 AND 1499 THEN
+                SET class_result = 'Distinction';
+            ELSEIF total_marks BETWEEN 900 AND 989 THEN
+                SET class_result = 'First Class';
+            ELSEIF total_marks BETWEEN 825 AND 899 THEN
+                SET class_result = 'Higher Second';
+            ELSEIF total_marks BETWEEN 750 AND 824 THEN
+                SET class_result = 'Second';
+            ELSE
+                SET class_result = 'Pass';
+            END IF;
+
+            INSERT INTO Result (rollno, total_marks, class) 
+            VALUES (c_roll, total_marks, class_result)
+            ON DUPLICATE KEY UPDATE total_marks = total_marks, class = class_result;
+
+        EXCEPTION
+            WHEN SQLEXCEPTION THEN
+                ITERATE read_loop; -- Skip invalid students
+        END;
+    END LOOP;
+    CLOSE cur;
+END //
+DELIMITER ;
+
+-- Call the procedure
+CALL Calculate_Class();
+
+-- Display results
+SELECT * FROM Result;
+
+29  Writ a PL/SQL procedure to find the number of students ranging from 100-70%, 69-60%, 59-50% & below 49% in each course from the student_course table given by the procedure as parameter.
+Schema: Student (ROLL_NO ,COURSE, COURSE_COD ,SEM ,TOTAL_MARKS, PERCENTAGE)
+
+
+-- Create database and use it
+CREATE DATABASE IF NOT EXISTS StudentDB;
+USE StudentDB;
+
+-- Create Student table
+CREATE TABLE Student (
+    ROLL_NO INT PRIMARY KEY,
+    COURSE VARCHAR(50),
+    COURSE_COD VARCHAR(20),
+    SEM INT,
+    TOTAL_MARKS INT,
+    PERCENTAGE FLOAT
+);
+
+-- Insert sample data into Student table
+INSERT INTO Student VALUES
+(1, 'Computer Science', 'CS101', 1, 700, 87.5),
+(2, 'Computer Science', 'CS101', 1, 650, 81.25),
+(3, 'Computer Science', 'CS101', 1, 590, 73.75),
+(4, 'Computer Science', 'CS101', 1, 510, 63.75),
+(5, 'Computer Science', 'CS101', 1, 480, 60.0),
+(6, 'Computer Science', 'CS101', 1, 440, 55.0),
+(7, 'Computer Science', 'CS101', 1, 380, 47.5),
+(8, 'Electronics', 'EC201', 2, 720, 90.0),
+(9, 'Electronics', 'EC201', 2, 620, 77.5),
+(10,'Electronics', 'EC201', 2, 570, 71.25),
+(11,'Electronics', 'EC201', 2, 500, 62.5),
+(12,'Electronics', 'EC201', 2, 460, 57.5),
+(13,'Electronics', 'EC201', 2, 430, 53.75),
+(14,'Electronics', 'EC201', 2, 390, 48.75);
+
+-- Procedure to count students by percentage ranges for a given course
+DELIMITER //
+CREATE PROCEDURE Count_Students_By_Percentage(p_course_code VARCHAR(20))
+BEGIN
+    DECLARE v_100_70 INT DEFAULT 0;
+    DECLARE v_69_60 INT DEFAULT 0;
+    DECLARE v_59_50 INT DEFAULT 0;
+    DECLARE v_below_49 INT DEFAULT 0;
+
+    SELECT COUNT(*) INTO v_100_70
+    FROM Student
+    WHERE COURSE_COD = p_course_code AND PERCENTAGE BETWEEN 70 AND 100;
+
+    SELECT COUNT(*) INTO v_69_60
+    FROM Student
+    WHERE COURSE_COD = p_course_code AND PERCENTAGE BETWEEN 60 AND 69;
+
+    SELECT COUNT(*) INTO v_59_50
+    FROM Student
+    WHERE COURSE_COD = p_course_code AND PERCENTAGE BETWEEN 50 AND 59;
+
+    SELECT COUNT(*) INTO v_below_49
+    FROM Student
+    WHERE COURSE_COD = p_course_code AND PERCENTAGE < 50;
+
+    SELECT 
+      CONCAT('Course Code: ', p_course_code) AS Info,
+      CONCAT('70% - 100% : ', v_100_70) AS Range_70_100,
+      CONCAT('60% - 69%  : ', v_69_60) AS Range_60_69,
+      CONCAT('50% - 59%  : ', v_59_50) AS Range_50_59,
+      CONCAT('Below 50%  : ', v_below_49) AS Range_Below_50;
+END;
+//
+DELIMITER ;
+
+-- To execute the procedure and see the output, use:
+CALL Count_Students_By_Percentage('CS101');
+CALL Count_Students_By_Percentage('EC201');
+
+
+30  Write a Stored Procedure namely proc_Grade for the categorization of student. If marks scored by students in examination is <=1500 and marks>=990 then student will be placed in distinction category if marks scored are between 989 and900 category is first class, if marks 899 and 825 category is Higher Second Class .
+
+Consider Schema as Stud_Marks(name, total_marks) and Result(Roll,Name, Class) 
+
+-- Create database and use it
+CREATE DATABASE IF NOT EXISTS StudentDB;
+USE StudentDB;
+
+-- Create Stud_Marks table
+CREATE TABLE Stud_Marks (
+    Roll INT PRIMARY KEY AUTO_INCREMENT,
+    name VARCHAR(100),
+    total_marks INT
+);
+
+-- Create Result table
+CREATE TABLE Result (
+    Roll INT PRIMARY KEY,
+    Name VARCHAR(100),
+    Class VARCHAR(30)
+);
+
+-- Insert sample data
+INSERT INTO Stud_Marks (name, total_marks) VALUES
+('Rahul', 1200),
+('Neha', 950),
+('Amit', 880),
+('Pooja', 830),
+('Karan', 700);
+
+-- Procedure to categorize students based on marks and insert into Result table
+DELIMITER //
+CREATE PROCEDURE proc_Grade()
+BEGIN
+    DECLARE done INT DEFAULT 0;
+    DECLARE v_Roll INT;
+    DECLARE v_Name VARCHAR(100);
+    DECLARE v_Marks INT;
+    DECLARE v_Class VARCHAR(30);
+
+    DECLARE cur CURSOR FOR SELECT Roll, name, total_marks FROM Stud_Marks;
+    DECLARE CONTINUE HANDLER FOR NOT FOUND SET done = 1;
+
+    OPEN cur;
+    read_loop: LOOP
+        FETCH cur INTO v_Roll, v_Name, v_Marks;
+        IF done THEN
+            LEAVE read_loop;
+        END IF;
+
+        IF v_Marks BETWEEN 990 AND 1500 THEN
+            SET v_Class = 'Distinction';
+        ELSEIF v_Marks BETWEEN 900 AND 989 THEN
+            SET v_Class = 'First Class';
+        ELSEIF v_Marks BETWEEN 825 AND 899 THEN
+            SET v_Class = 'Higher Second Class';
+        ELSE
+            SET v_Class = 'Other';
+        END IF;
+
+        INSERT INTO Result (Roll, Name, Class) VALUES (v_Roll, v_Name, v_Class)
+        ON DUPLICATE KEY UPDATE Class = v_Class;
+    END LOOP;
+
+    CLOSE cur;
+END;
+//
+DELIMITER ;
+
+-- Call the procedure
+CALL proc_Grade();
+
+-- View results
+SELECT * FROM Result;
+9.PL/SQL code block: Use of Control structure and Exception handling is mandatory. Write a PL/SQL block of code for the following requirements:- 
+Schema: 
+1. Borrower(Rollin, Name, DateofIssue, NameofBook, Status) 
+2. Fine(Roll_no,Date,Amt) 
+3. Library (bid, bname, doi, status,noc)
+4. transaction (tid,bid, bname, status)
+1.	Accept roll_no & name of book from user. 
+2.	Check the number of days (from date of issue), if days are between 15 to 30 then fine amount will be Rs 5per day. 
+3.	If no. of days>30, per day fine will be Rs 50 per day & for days less than 30, Rs. 5 per day. 
+4.	After submitting the book, status will change from I to R.
+5.	Update the noc in library according to the transaction made.  Increase the noc if status is RETURN, Decrease noc if status is ISSUE.
+6.	If condition of fine is true, then details will be stored into fine table. 
+
+-- Create database and use it
+CREATE DATABASE IF NOT EXISTS LibraryDB;
+USE LibraryDB;
+
+-- Create Borrower table
+CREATE TABLE Borrower (
+    Rollin INT,
+    Name VARCHAR(100),
+    DateofIssue DATE,
+    NameofBook VARCHAR(100),
+    Status CHAR(1),  -- 'I' = Issued, 'R' = Returned
+    PRIMARY KEY (Rollin, NameofBook)
+);
+
+-- Create Fine table
+CREATE TABLE Fine (
+    Roll_no INT,
+    Date DATE,
+    Amt DECIMAL(10,2)
+);
+
+-- Create Library table
+CREATE TABLE Library (
+    bid INT PRIMARY KEY,
+    bname VARCHAR(100),
+    doi DATE,
+    status CHAR(1),
+    noc INT  -- number of copies available
+);
+
+-- Create transaction table
+CREATE TABLE transaction (
+    tid INT PRIMARY KEY,
+    bid INT,
+    bname VARCHAR(100),
+    status CHAR(1)  -- 'I' = Issue, 'R' = Return
+);
+
+-- Insert sample data into Library
+INSERT INTO Library VALUES
+(1, 'Data Structures', '2023-01-01', 'A', 5),
+(2, 'Database Systems', '2023-01-10', 'A', 3),
+(3, 'Operating Systems', '2023-01-15', 'A', 2);
+
+-- Insert sample data into Borrower (books issued)
+INSERT INTO Borrower VALUES
+(101, 'Rahul', '2023-04-01', 'Data Structures', 'I'),
+(102, 'Neha', '2023-03-15', 'Database Systems', 'I'),
+(103, 'Amit', '2023-02-20', 'Operating Systems', 'I');
+
+-- Insert sample data into transaction
+INSERT INTO transaction VALUES
+(1001, 1, 'Data Structures', 'I'),
+(1002, 2, 'Database Systems', 'I'),
+(1003, 3, 'Operating Systems', 'I');
+
+
+-- Procedure to return book, update status, calculate fine, and update noc
+DELIMITER //
+CREATE PROCEDURE Return_Book (
+    IN p_roll INT,
+    IN p_book VARCHAR(100)
+)
+BEGIN
+    DECLARE v_date_issue DATE;
+    DECLARE v_status CHAR(1);
+    DECLARE v_bid INT;
+    DECLARE v_noc INT;
+    DECLARE v_days INT;
+    DECLARE v_fine_amt DECIMAL(10,2) DEFAULT 0;
+
+    -- Get DateofIssue and Status for the book issued to the borrower
+    SELECT DateofIssue, Status INTO v_date_issue, v_status
+    FROM Borrower
+    WHERE Rollin = p_roll AND NameofBook = p_book;
+
+    -- Check if book is currently issued
+    IF v_status != 'I' THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Book is not currently issued';
+    END IF;
+
+    -- Calculate days since book was issued
+    SET v_days = DATEDIFF(CURDATE(), v_date_issue);
+
+    -- Calculate fine based on days
+    IF v_days BETWEEN 15 AND 30 THEN
+        SET v_fine_amt = (v_days - 15) * 5;
+    ELSEIF v_days > 30 THEN
+        SET v_fine_amt = 15 * 5 + (v_days - 30) * 50;
+    END IF;
+
+    -- Update Borrower status to Returned ('R')
+    UPDATE Borrower SET Status = 'R'
+    WHERE Rollin = p_roll AND NameofBook = p_book;
+
+    -- Get book id and current noc from Library
+    SELECT bid, noc INTO v_bid, v_noc FROM Library WHERE bname = p_book;
+
+    -- Increase number of copies available after return
+    UPDATE Library SET noc = v_noc + 1 WHERE bid = v_bid;
+
+    -- Insert fine record if fine amount > 0
+    IF v_fine_amt > 0 THEN
+        INSERT INTO Fine (Roll_no, Date, Amt) VALUES (p_roll, CURDATE(), v_fine_amt);
+    END IF;
+
+END;
+//
+DELIMITER ;
+
+-- Example usage: return book for Roll 101 and 'Data Structures'
+CALL Return_Book(101, 'Data Structures');
+
+-- Check Borrower table status for this user and book
+SELECT * FROM Borrower WHERE Rollin = 101 AND NameofBook = 'Data Structures';
+
+-- Check updated Library noc for the book
+SELECT * FROM Library WHERE bname = 'Data Structures';
+
+-- Check any fines recorded for this Roll_no
+SELECT * FROM Fine WHERE Roll_no = 101;
+
+
+26  Write a PL/SQL code to calculate tax for an employee of an organization ABC and to display his/her name & tax, by creating a table under employee database as below:
+Employee_salary(emp_no,basic,HRA,DA,Total_deduction,net_salary,gross_Salary)
+
+
+-- Create and use EmployeeDB database
+CREATE DATABASE IF NOT EXISTS EmployeeDB;
+USE EmployeeDB;
+
+-- Create Employee_salary table
+CREATE TABLE Employee_salary (
+    emp_no INT PRIMARY KEY,
+    emp_name VARCHAR(100),
+    basic DECIMAL(10,2),
+    HRA DECIMAL(10,2),
+    DA DECIMAL(10,2),
+    Total_deduction DECIMAL(10,2),
+    net_salary DECIMAL(10,2),
+    gross_salary DECIMAL(10,2)
+);
+
+-- Insert sample data
+INSERT INTO Employee_salary VALUES
+(101, 'Amit Sharma', 30000, 5000, 4000, 6000, 0, 0),
+(102, 'Neha Gupta', 45000, 8000, 6000, 7000, 0, 0),
+(103, 'Rohit Singh', 25000, 4000, 3000, 5000, 0, 0);
+
+-- Procedure to calculate gross_salary, net_salary, tax and display emp_name and tax
+DELIMITER //
+
+CREATE PROCEDURE Calculate_Tax()
+BEGIN
+    DECLARE v_tax DECIMAL(10,2);
+    DECLARE v_emp_no INT;
+    DECLARE v_emp_name VARCHAR(100);
+    DECLARE v_basic, v_HRA, v_DA, v_deduction, v_gross, v_net DECIMAL(10,2);
+
+    DECLARE done INT DEFAULT 0;
+    DECLARE cur CURSOR FOR 
+        SELECT emp_no, emp_name, basic, HRA, DA, Total_deduction FROM Employee_salary;
+    DECLARE CONTINUE HANDLER FOR NOT FOUND SET done = 1;
+
+    OPEN cur;
+
+    read_loop: LOOP
+        FETCH cur INTO v_emp_no, v_emp_name, v_basic, v_HRA, v_DA, v_deduction;
+        IF done THEN
+            LEAVE read_loop;
+        END IF;
+
+        SET v_gross = v_basic + v_HRA + v_DA;
+        SET v_net = v_gross - v_deduction;
+
+        -- Update gross_salary and net_salary in the table
+        UPDATE Employee_salary SET gross_salary = v_gross, net_salary = v_net WHERE emp_no = v_emp_no;
+
+        -- Calculate tax based on net salary slabs
+        IF v_net > 50000 THEN
+            SET v_tax = v_net * 0.30;
+        ELSEIF v_net BETWEEN 30001 AND 50000 THEN
+            SET v_tax = v_net * 0.20;
+        ELSEIF v_net BETWEEN 15001 AND 30000 THEN
+            SET v_tax = v_net * 0.10;
+        ELSE
+            SET v_tax = 0;
+        END IF;
+
+        -- Display employee name and calculated tax
+        SELECT v_emp_name AS Employee, v_tax AS Tax;
+
+    END LOOP;
+
+    CLOSE cur;
+END;
+//
+
+DELIMITER ;
+
+-- Call the procedure to calculate and display tax for each employee
+CALL Calculate_Tax();
+
+-- View updated salaries in the table
+SELECT * FROM Employee_salary;
+
+27  Create PL/SQL code block: Write a PL/SQL block of code for the following schema: 
+ Borrower(Rollin, Name, DateofIssue, NameofBook, Status) 
+ Fine(Roll_no,Date,Amt) 
+
+Solve following queries:
+1.	Accept roll_no & name of book from user. 
+2.	Check the number of days (from date of issue), if days are between 15 to 30 then fine amount will be Rs 5per day. 
+3.	If no. of days>30, per day fine will be Rs 50 per day & for days less than 30, Rs. 5 per day. 
+4.	After submitting the book, status will change from I to R. 
+5.	If condition of fine is true, then details will be stored into fine table. 
+
+Use of Control structure and Exception handling is mandatory.
+
+-- Create and use LibraryDB database
+CREATE DATABASE IF NOT EXISTS LibraryDB;
+USE LibraryDB;
+
+-- Create Borrower table
+CREATE TABLE Borrower (
+    Rollin INT,
+    Name VARCHAR(100),
+    DateofIssue DATE,
+    NameofBook VARCHAR(100),
+    Status CHAR(1),  -- I for Issued, R for Returned
+    PRIMARY KEY (Rollin, NameofBook)
+);
+
+-- Create Fine table
+CREATE TABLE Fine (
+    Roll_no INT,
+    Date DATE,
+    Amt DECIMAL(10,2)
+);
+
+-- Insert sample data into Borrower table with fixed dates
+INSERT INTO Borrower VALUES
+(101, 'Amit Sharma', '2025-05-01', 'Database Systems', 'I'),
+(102, 'Neha Gupta', '2025-04-15', 'Operating Systems', 'I'),
+(103, 'Rohit Singh', '2025-03-20', 'Networking', 'I'),
+(104, 'Pooja Patel', '2025-05-10', 'Data Structures', 'I');
+
+-- Drop procedure if exists
+DROP PROCEDURE IF EXISTS SubmitBook;
+
+DELIMITER //
+
+CREATE PROCEDURE SubmitBook(p_Rollno INT, p_BookName VARCHAR(100))
+BEGIN
+    DECLARE v_DateOfIssue DATE;
+    DECLARE v_Status CHAR(1);
+    DECLARE v_Days INT;
+    DECLARE v_FineAmt DECIMAL(10,2);
+
+    -- Exception handler for NOT FOUND
+    DECLARE CONTINUE HANDLER FOR NOT FOUND
+    BEGIN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Borrower record not found';
+    END;
+
+    -- Get the DateofIssue and Status for the given Rollno and Book
+    SELECT DateofIssue, Status INTO v_DateOfIssue, v_Status
+    FROM Borrower
+    WHERE Rollin = p_Rollno AND NameofBook = p_BookName;
+
+    -- Check if book is already returned
+    IF v_Status = 'R' THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Book already returned';
+    END IF;
+
+    -- Calculate the number of days since the book was issued
+    SET v_Days = DATEDIFF(CURDATE(), v_DateOfIssue);
+
+    -- Calculate fine based on days
+    IF v_Days BETWEEN 15 AND 30 THEN
+        SET v_FineAmt = v_Days * 5;  -- Rs 5 per day
+    ELSEIF v_Days > 30 THEN
+        SET v_FineAmt = (30 * 5) + ((v_Days - 30) * 50);  -- Rs 5 per day for first 30 days + Rs 50 per day after 30 days
+    ELSE
+        SET v_FineAmt = 0;
+    END IF;
+
+    -- Update Borrower status to Returned 'R'
+    UPDATE Borrower
+    SET Status = 'R'
+    WHERE Rollin = p_Rollno AND NameofBook = p_BookName;
+
+    -- If fine applicable, insert into Fine table
+    IF v_FineAmt > 0 THEN
+        INSERT INTO Fine(Roll_no, Date, Amt) VALUES (p_Rollno, CURDATE(), v_FineAmt);
+    END IF;
+
+    -- Display message and fine amount
+    SELECT CONCAT('Book returned successfully by Roll No: ', p_Rollno) AS Message,
+           CONCAT('Fine Amount: Rs. ', v_FineAmt) AS Fine;
+END;
+//
+
+DELIMITER ;
+
+-- Example call to procedure to submit book
+CALL SubmitBook(102, 'Operating Systems');
+
+-- Check updated Borrower table
+SELECT * FROM Borrower;
+
+-- Check Fine table for fines recorded
+SELECT * FROM Fine;
+
+28  Write a PL/SQL block of code using parameterized Cursor, that will merge the data available in the newly created table N_RollCall with the data available in the table O_RollCall. If the data in the first table already exist in the second table then that data should be skipped. 
+
+-- Create and use RollCallDB database
+CREATE DATABASE RollCallDB;
+USE RollCallDB;
+
+-- Create O_RollCall table (Old Roll Call)
+CREATE TABLE O_RollCall (
+    RollNo INT PRIMARY KEY,
+    StudentName VARCHAR(100),
+    AttendanceDate DATE
+);
+
+-- Create N_RollCall table (New Roll Call)
+CREATE TABLE N_RollCall (
+    RollNo INT,
+    StudentName VARCHAR(100),
+    AttendanceDate DATE
+);
+
+-- Insert sample data into O_RollCall
+INSERT INTO O_RollCall VALUES
+(101, 'Amit Sharma', '2025-05-20'),
+(102, 'Neha Gupta', '2025-05-20');
+
+-- Insert sample data into N_RollCall
+INSERT INTO N_RollCall VALUES
+(102, 'Neha Gupta', '2025-05-20'),  -- Duplicate, should be skipped
+(103, 'Rohit Singh', '2025-05-20'),
+(104, 'Pooja Patel', '2025-05-20');
+
+-- PL/SQL block to merge data from N_RollCall into O_RollCall using parameterized cursor
+DELIMITER //
+
+CREATE PROCEDURE Merge_RollCall()
+BEGIN
+    DECLARE v_RollNo INT;
+    DECLARE v_StudentName VARCHAR(100);
+    DECLARE v_AttendanceDate DATE;
+    DECLARE done INT DEFAULT 0;
+
+    -- Parameterized cursor selecting all rows from N_RollCall
+    DECLARE cur CURSOR FOR
+        SELECT RollNo, StudentName, AttendanceDate FROM N_RollCall;
+    DECLARE CONTINUE HANDLER FOR NOT FOUND SET done = 1;
+
+    OPEN cur;
+
+    read_loop: LOOP
+        FETCH cur INTO v_RollNo, v_StudentName, v_AttendanceDate;
+        IF done THEN
+            LEAVE read_loop;
+        END IF;
+
+        -- Check if record already exists in O_RollCall
+        IF NOT EXISTS (SELECT 1 FROM O_RollCall WHERE RollNo = v_RollNo AND AttendanceDate = v_AttendanceDate) THEN
+            -- Insert only if not exists
+            INSERT INTO O_RollCall (RollNo, StudentName, AttendanceDate)
+            VALUES (v_RollNo, v_StudentName, v_AttendanceDate);
+        END IF;
+
+    END LOOP;
+
+    CLOSE cur;
+
+    -- Display updated O_RollCall table
+    SELECT * FROM O_RollCall;
+END;
+//
+
+DELIMITER ;
+
+-- Call procedure to merge
+CALL Merge_RollCall();
+
+-- View final O_RollCall data
+SELECT * FROM O_RollCall;
+
+
+
+
