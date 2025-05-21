@@ -114,50 +114,72 @@ db.total_marks_by_city.find();
 
 
 PART B:
+-- Create database and use it
+CREATE DATABASE StudentDB;
+USE StudentDB;
 
--- Step 1: Create the students table with marks for 4 subjects
-CREATE TABLE students (
-  stud_id NUMBER PRIMARY KEY,
-  stud_name VARCHAR2(50),
-  marks_sub1 NUMBER(3),
-  marks_sub2 NUMBER(3),
-  marks_sub3 NUMBER(3),
-  marks_sub4 NUMBER(3)
+-- Create Students table with integer marks for 4 subjects
+CREATE TABLE Students (
+    stud_id INT PRIMARY KEY,
+    stud_name VARCHAR(100),
+    sub1 INT,
+    sub2 INT,
+    sub3 INT,
+    sub4 INT
 );
 
--- Step 2: Insert sample student data
-INSERT INTO students VALUES (1, 'Amit Sharma', 85, 78, 92, 88);
-INSERT INTO students VALUES (2, 'Sneha Patel', 90, 85, 88, 91);
-INSERT INTO students VALUES (3, 'Rajesh Kumar', 75, 80, 70, 68);
-INSERT INTO students VALUES (4, 'Priya Singh', 88, 92, 95, 90);
-INSERT INTO students VALUES (5, 'Anjali Rao', 80, 82, 79, 85);
+-- Insert sample student data
+INSERT INTO Students VALUES (1, 'Amit', 85, 90, 78, 92);
+INSERT INTO Students VALUES (2, 'Neha', 75, 88, 82, 79);
+INSERT INTO Students VALUES (3, 'Rohit', 65, 70, 60, 75);
+INSERT INTO Students VALUES (4, 'Priya', 95, 92, 89, 94);
 
-COMMIT;
+-- Create procedure to calculate total and percentage of marks
+DELIMITER //
 
--- Step 3: PL/SQL block to calculate total and percentage for each student
-DECLARE
-  v_total NUMBER(3);        -- Variable to store total marks
-  v_percentage NUMBER(5,2); -- Variable to store percentage with 2 decimal places
+CREATE PROCEDURE Calculate_Total_Percentage()
 BEGIN
-  -- Loop through each student record
-  FOR rec IN (
-    SELECT stud_id, stud_name, marks_sub1, marks_sub2, marks_sub3, marks_sub4 FROM students
-  )
-  LOOP
-    -- Calculate total marks by summing marks of 4 subjects
-    v_total := rec.marks_sub1 + rec.marks_sub2 + rec.marks_sub3 + rec.marks_sub4;
-    
-    -- Calculate percentage assuming each subject is out of 100 marks
-    v_percentage := (v_total / 400) * 100;
-    
-    -- Display student details, total marks and percentage
-    DBMS_OUTPUT.PUT_LINE('Student: ' || rec.stud_name);
-    DBMS_OUTPUT.PUT_LINE('Total Marks: ' || v_total);
-    DBMS_OUTPUT.PUT_LINE('Percentage: ' || ROUND(v_percentage, 2) || '%');
-    DBMS_OUTPUT.PUT_LINE('-----------------------------');
+  DECLARE v_total INT;
+  DECLARE v_percentage FLOAT;
+  DECLARE v_sub1 INT;
+  DECLARE v_sub2 INT;
+  DECLARE v_sub3 INT;
+  DECLARE v_sub4 INT;
+  DECLARE v_stud_name VARCHAR(100);
+
+  -- Cursor to loop over all students
+  DECLARE cur CURSOR FOR SELECT stud_name, sub1, sub2, sub3, sub4 FROM Students;
+  DECLARE done INT DEFAULT 0;
+  DECLARE CONTINUE HANDLER FOR NOT FOUND SET done = 1;
+
+  OPEN cur;
+
+  read_loop: LOOP
+    FETCH cur INTO v_stud_name, v_sub1, v_sub2, v_sub3, v_sub4;
+    IF done THEN
+      LEAVE read_loop;
+    END IF;
+
+    SET v_total = v_sub1 + v_sub2 + v_sub3 + v_sub4;
+    SET v_percentage = (v_total / 400) * 100;
+
+    SELECT CONCAT('Student: ', v_stud_name, ', Total Marks: ', v_total, ', Percentage: ', ROUND(v_percentage, 2), '%') AS Result;
   END LOOP;
+
+  CLOSE cur;
 END;
-/
+//
+
+DELIMITER ;
+
+-- Call the procedure to see the results
+CALL Calculate_Total_Percentage();
+
+
+
+
+
+
 
 17 Create  following collection and  using MongoDB  implement all CRUD operations.
                         Orders( cust_id, amount, status)
