@@ -519,7 +519,11 @@ INSERT IGNORE INTO borrower VALUES
 -- 1. Calculate total loan amount given by bank
 SELECT SUM(amount) AS TotalLoanAmount FROM loan;
 -- 2. Delete all loans with loan amount between 1300 and 1500
+DELETE FROM borrower WHERE loan_no IN (
+	SELECT loan_no FROM loan WHERE amount BETWEEN 1300 AND 1500
+);
 DELETE FROM loan WHERE amount BETWEEN 1300 AND 1500;
+
 -- 3. Delete all tuples at every branch located in Nigdi
 -- Step 1: Delete dependent tuples from borrower and depositor related to Nigdi branch
 DELETE b
@@ -535,6 +539,7 @@ DELETE FROM loan WHERE branch_name = 'Nigdi';
 DELETE FROM account WHERE branch_name = 'Nigdi';
 -- Step 3: Delete the branch 'Nigdi' from branch table
 DELETE FROM branch WHERE branch_name = 'Nigdi';
+
 
 20  Create the following tables.
 Deposit (actno,cname,bname,amount,adate)
